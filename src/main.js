@@ -40,8 +40,18 @@ const broadcast = (server, data) => {
   });
 };
 
+// Extract token from query string
+const getTokenFromUrl = reqUrl => (
+  url.parse(reqUrl, true).query.token
+);
+
+// Authorize a client by token
+const verifyClient = ({ req }) => (
+  Boolean(getTokenFromUrl(req.url))
+);
+
 // Initialize
-const wss = new WebSocket.Server({ port: 3000 });
+const wss = new WebSocket.Server({ port: 3000, verifyClient });
 const lifeGame = new LifeGameVirtualDom();
 
 lifeGame.sendUpdates = (data) => {
@@ -52,11 +62,6 @@ lifeGame.sendUpdates = (data) => {
 };
 
 wss.on('connection', (ws, req) => {
-  // Authorize the client
-  const clientUrl = url.parse(req.url, true);
-  const { token } = clientUrl.query;
-  if (!token) { return; }
-
   // Send initialization data
   ws.send(JSON.stringify({
     type: 'INITIALIZE',
@@ -64,10 +69,10 @@ wss.on('connection', (ws, req) => {
       state: lifeGame.state,
       settings: lifeGame.settings,
       user: {
-        token,
+        token: getTokenFromUrl(req.url),
         color: getRandomColor(),
-      }
-    }
+      },
+    },
   }));
 
   ws.on('message', (message) => {
